@@ -23,40 +23,56 @@ END = 2
 
 class ChunkConverter:
     def __init__(
-        self, position: tuple[int, int, int], entry: Entry, blocks: dict
+        self,
+        position: tuple[int, int, int],
+        entry: Entry,
+        blocks: dict,
+        corrupted: bool = False,
     ) -> None:
         self.region_x, self.region_z, self.dimension = position
         self.entry = entry
         self.blocks = blocks
+        self.corrupted = corrupted
+
+    corrupted_block = Block("minecraft", "glass")
 
     def place_blocks(self) -> None:
         # print(self.region_x, self.region_z)
         self.chunk = EmptyChunk(self.region_x, self.region_z)
-        for subchunk_y, blocks in enumerate(self.entry.blocks):
-            y_offset = subchunk_y * 16
-            for position, block in enumerate(blocks[:0x1000]):
-                y = (position & 0xF) + y_offset
-                z = (position & 0xF0) >> 4
-                x = position >> 8
-                # extract the nibble from the byte
-                block_byte = blocks[0x1000 + position // 2]
-                if position % 2 == 0:
-                    block_data = block_byte & 0xF
-                else:
-                    block_data = block_byte >> 4
+        if self.corrupted:
+            for subchunk_y in range(8):
+                y_offset = subchunk_y * 16
+                for position in range(0x1000):
+                    y = (position & 0xF) + y_offset
+                    z = (position & 0xF0) >> 4
+                    x = position >> 8
+                    self.chunk.set_block(self.corrupted_block, x, y, z)
+        else:
+            for subchunk_y, blocks in enumerate(self.entry.blocks):
+                y_offset = subchunk_y * 16
+                for position, block in enumerate(blocks[:0x1000]):
+                    y = (position & 0xF) + y_offset
+                    z = (position & 0xF0) >> 4
+                    x = position >> 8
+                    # extract the nibble from the byte
+                    block_byte = blocks[0x1000 + position // 2]
+                    if position % 2 == 0:
+                        block_data = block_byte & 0xF
+                    else:
+                        block_data = block_byte >> 4
 
-                block_id = (block, block_data)
-                if block_id != (0, 0):
-                    try:
-                        block = self.blocks[block_id]
-                    except KeyError:
-                        print(
-                            f"unknown block {block_id} at {(x, y, z)} dimension {self.dimension}",
-                            file=sys.stderr,
-                        )
-                        sys.stderr.flush()
-                        block = Block("minecraft", "netherite_block")
-                    self.chunk.set_block(block, x, y, z)
+                    block_id = (block, block_data)
+                    if block_id != (0, 0):
+                        try:
+                            block = self.blocks[block_id]
+                        except KeyError:
+                            print(
+                                f"unknown block {block_id} at {(x, y, z)} dimension {self.dimension}",
+                                file=sys.stderr,
+                            )
+                            sys.stderr.flush()
+                            block = Block("minecraft", "netherite_block")
+                        self.chunk.set_block(block, x, y, z)
 
     @property
     def region_position(self) -> tuple[int, int, int]:
@@ -139,7 +155,10 @@ def convert(
     chunk_converters = []
 
     for position, entry in world.entries.items():
-        chunk_converters.append(ChunkConverter(position, entry, blocks))
+        if entry is True:
+            chunk_converters.append(ChunkConverter(position, None, blocks, True))
+        else:
+            chunk_converters.append(ChunkConverter(position, entry, blocks))
 
     def convert_chunk(
         chunk_converter: ChunkConverter,
