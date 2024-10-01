@@ -534,7 +534,12 @@ class World:
                 pass  # print(f"N {entry}")
             else:
                 assert slot in self.cdb.keys()
-                chunk = self.cdb[slot][entry.subfile]
+                try:
+                    chunk = self.cdb[slot][entry.subfile]
+                finally:
+                    print(
+                        f"position={repr(parse_position(entry.position))} slot={slot:d} subfile={entry.subfile:d}"
+                    )
 
                 position = parse_position(entry.position)
                 assert position == chunk.position
