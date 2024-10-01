@@ -543,6 +543,7 @@ class World:
                     print(
                         f"ignoring corrupted file: position={repr(parse_position(entry.position))} slot={slot:d} subfile={entry.subfile:d}"
                     )
+                    continue
 
                 position = parse_position(entry.position)
                 assert position == chunk.position
