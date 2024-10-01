@@ -536,9 +536,12 @@ class World:
                 assert slot in self.cdb.keys()
                 try:
                     chunk = self.cdb[slot][entry.subfile]
-                finally:
+                except Exception:
+                    import traceback
+
+                    traceback.print_exc()
                     print(
-                        f"position={repr(parse_position(entry.position))} slot={slot:d} subfile={entry.subfile:d}"
+                        f"ignoring corrupted file: position={repr(parse_position(entry.position))} slot={slot:d} subfile={entry.subfile:d}"
                     )
 
                 position = parse_position(entry.position)
