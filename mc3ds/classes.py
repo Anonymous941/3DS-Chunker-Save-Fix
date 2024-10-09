@@ -420,6 +420,9 @@ class DBDirectory:
     def keys(self) -> tuple[int]:
         return tuple(self._files.keys())
 
+    def values(self) -> tuple:
+        return tuple(self._files.values())
+
     def get_file(self, key: int) -> Path:
         return self._files[key]
 
@@ -524,6 +527,7 @@ class World:
             self._index = Index(index_file)
 
         self.entries = {}
+        self.corrupted = []
         for entry in self._index.entries:
             slot = entry.slot
             assert entry.constant0 == 0x20FF
@@ -533,6 +537,7 @@ class World:
             if slot not in self.cdb.keys():
                 pass  # print(f"N {entry}")
             else:
+                position = parse_position(entry.position)
                 assert slot in self.cdb.keys()
                 try:
                     chunk = self.cdb[slot][entry.subfile]
@@ -541,12 +546,12 @@ class World:
 
                     traceback.print_exc()
                     print(
-                        f"ignoring corrupted file: position={repr(parse_position(entry.position))} slot={slot:d} subfile={entry.subfile:d}"
+                        f"found corrupted file: position={repr(parse_position(entry.position))} slot={slot:d} subfile={entry.subfile:d}"
                     )
                     self.entries[position] = True
+                    self.corrupted.append(position)
                     continue
 
-                position = parse_position(entry.position)
                 assert position == chunk.position
                 chunk0 = chunk._header.unknown0
                 chunk1 = chunk._header.unknown1
@@ -557,6 +562,18 @@ class World:
                     raise ValueError(f"duplicate position {position}")
                 else:
                     self.entries[position] = Entry(entry, chunk, debug)
+
+    def recover_data(self):
+        self.recovered = {position: 0 for position in self.corrupted}
+        for cdb_file in self.cdb.values():
+            for subfile_index in range(cdb_file.subfile_count):
+                try:
+                    chunk = self.cdb[slot][entry.subfile]
+                except Exception:
+                    continue
+                position = chunk.position
+                if position in self.corrupted:
+                    self.recovered[position] += 1
 
     def __iter__(self):
         return IterWorld(self)

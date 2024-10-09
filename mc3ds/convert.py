@@ -152,6 +152,12 @@ def convert(
         raw_blocks = json.load(blocks_file)
     blocks = parse_block_json(raw_blocks)
 
+    if 1:
+        # recover chunks
+        world.recover_data()
+        for position, found in world.recovered.items():
+            print(f"{position}: found {found:d} potentially non-corrupted copies")
+
     chunk_converters = []
 
     for position, entry in world.entries.items():
