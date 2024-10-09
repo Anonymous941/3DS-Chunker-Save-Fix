@@ -157,6 +157,7 @@ def convert(
         world.recover_data()
         for position, found in world.recovered.items():
             print(f"{position}: found {found:d} potentially non-corrupted copies")
+        exit()
 
     chunk_converters = []
 
