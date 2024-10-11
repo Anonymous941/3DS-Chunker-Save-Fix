@@ -566,9 +566,10 @@ class World:
     def recover_data(self):
         self.recovered = {position: 0 for position in self.corrupted}
         for cdb_file in self.cdb.values():
-            for subfile_index in range(cdb_file.subfile_count):
+            cdb = self.cdb[slot]
+            for subfile_index in range(cdb.subfile_count):
                 try:
-                    chunk = self.cdb[slot][entry.subfile]
+                    chunk = cdb[entry.subfile]
                 except Exception:
                     continue
                 position = chunk.position
