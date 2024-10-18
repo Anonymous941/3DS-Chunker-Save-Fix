@@ -546,7 +546,7 @@ class World:
 
                     traceback.print_exc()
                     print(
-                        f"found corrupted file: position={repr(parse_position(entry.position))} slot={slot:d} subfile={entry.subfile:d}"
+                        f"found corrupted chunk: position={repr(position)} slot={slot:d} subfile={entry.subfile:d}"
                     )
                     self.entries[position] = True
                     self.corrupted.append(position)
@@ -565,16 +565,20 @@ class World:
 
     def recover_data(self):
         self.recovered = {position: 0 for position in self.corrupted}
-        for cdb_file in self.cdb.values():
-            cdb = CDBFile(open(cdb_file, "rb"))
-            for subfile_index in range(cdb.subfile_count):
+        for cdb_path in self.cdb.values():
+            with open(cdb_path, "rb") as cdb_handle:
                 try:
-                    chunk = cdb[entry.subfile]
+                    cdb = CDBFile(cdb_handle)
                 except Exception:
                     continue
-                position = chunk.position
-                if position in self.corrupted:
-                    self.recovered[position] += 1
+                for subfile_index in range(cdb.subfile_count):
+                    try:
+                        chunk = cdb[entry.subfile]
+                    except Exception:
+                        continue
+                    position = chunk.position
+                    if position in self.corrupted:
+                        self.recovered[position] += 1
 
     def __iter__(self):
         return IterWorld(self)
