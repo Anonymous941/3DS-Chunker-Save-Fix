@@ -544,7 +544,7 @@ class World:
                 except Exception:
                     import traceback
 
-                    traceback.print_exc()
+                    # traceback.print_exc()
                     print(
                         f"found corrupted chunk: position={repr(position)} slot={slot:d} subfile={entry.subfile:d}"
                     )
@@ -573,10 +573,11 @@ class World:
                     continue
                 for subfile_index in range(cdb.subfile_count):
                     try:
-                        chunk = cdb[entry.subfile]
+                        chunk = cdb[subfile_index]
                     except Exception:
                         continue
                     position = chunk.position
+                    print(position)
                     if position in self.corrupted:
                         self.recovered[position] += 1
 
