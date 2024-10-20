@@ -199,10 +199,6 @@ class Subchunk:
         # https://minecraft.wiki/w/Bedrock_Edition_level_format/History
         data = self.raw_decompressed[len(self._data_header) :]
         calculated = self._data_header.subchunks * RAW_SUBCHUNK_SIZE
-        # if self._data_header.subchunks > 1:
-        #     with open("../test.bin", "wb") as test:
-        #         test.write(self.raw_decompressed)
-        #     input("done")
         block_data = data[:calculated]
         other_data = data[calculated:]
         block_split = tuple(
@@ -423,6 +419,9 @@ class DBDirectory:
     def values(self) -> tuple:
         return tuple(self._files.values())
 
+    def items(self) -> tuple:
+        return tuple(self._files.items())
+
     def get_file(self, key: int) -> Path:
         return self._files[key]
 
@@ -564,8 +563,8 @@ class World:
                     self.entries[position] = Entry(entry, chunk, debug)
 
     def recover_data(self):
-        self.recovered = {position: 0 for position in self.corrupted}
-        for cdb_path in self.cdb.values():
+        self.recovered = {position: [] for position in self.corrupted}
+        for cdb_index, cdb_path in self.cdb.items():
             with open(cdb_path, "rb") as cdb_handle:
                 try:
                     cdb = CDBFile(cdb_handle)
@@ -577,9 +576,8 @@ class World:
                     except Exception:
                         continue
                     position = chunk.position
-                    print(position)
                     if position in self.corrupted:
-                        self.recovered[position] += 1
+                        self.recovered[position].append((cdb_index, subfile_index))
 
     def __iter__(self):
         return IterWorld(self)

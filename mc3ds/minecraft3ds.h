@@ -61,7 +61,7 @@ struct IndexPointer {
 
 struct CDBEntry {
     Position position;
-    uint16 slot; // slot (corresponds to a CDB file), unless it's <16?
+    uint16 slot; // slot (corresponds to a CDB file)
     uint16 subfile; // subfile within the slot
     uint16 constant0; // always 0x20FF
     uint16 constant1; // always 0xA

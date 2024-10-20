@@ -18,10 +18,9 @@ classifiers = [
 ]
 dependencies = [
     "dissect.cstruct",
-    "anvil-new",
     "click",
     "nbtlib",
-    "p_tqdm",
+    "anvil-new@git+https://github.com/Anonymous941/anvil-new",
 ]
 
 [project.urls]

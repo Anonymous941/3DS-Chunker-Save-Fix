@@ -1,7 +1,6 @@
 import sys
 import shutil
 from pathlib import Path
-import random
 import re
 import json
 import asyncio
@@ -12,9 +11,9 @@ from anvil import EmptyRegion, EmptyChunk, Block
 import nbtlib
 from nbtlib.tag import String
 from tqdm import tqdm
-from p_tqdm import p_umap, p_uimap
 
-from .classes import World, Entry
+from .classes import World, Entry, parse_position
+from .parser import parser
 
 OVERWORLD = 0
 NETHER = 1
@@ -37,9 +36,8 @@ class ChunkConverter:
     corrupted_block = Block("minecraft", "glass")
 
     def place_blocks(self) -> None:
-        # print(self.region_x, self.region_z)
         self.chunk = EmptyChunk(self.region_x, self.region_z)
-        if self.corrupted:
+        if False and self.corrupted:
             for subchunk_y in range(8):
                 y_offset = subchunk_y * 16
                 for position in range(0x1000):
@@ -132,6 +130,30 @@ def parse_block_json(raw_blocks: dict) -> dict:
     return blocks
 
 
+def fix_cdb_index(path: Path, world: World) -> int:
+    path = Path(path)
+    recovered = world.recovered
+    with open(path, "rb") as index_handle:
+        index = parser.Index(index_handle)
+    chunks_fixed = 0
+    for entry_index, entry in enumerate(index.entries):
+        position = parse_position(entry.position)
+        try:
+            chunk_copies = recovered[position]
+        except KeyError:
+            continue
+        slot, subfile = chunk_copies[0]
+        new_chunk_parameters = world.cdb[slot][subfile]._header.parameters
+        entry.slot = slot
+        entry.subfile = subfile
+        entry.parameters = new_chunk_parameters
+        chunks_fixed += 1
+    if chunks_fixed:
+        with open(path, "wb") as index_handle:
+            index_handle.write(index.dumps())
+    return chunks_fixed
+
+
 def convert(
     world: World,
     blank_world: Path,
@@ -156,16 +178,42 @@ def convert(
         # recover chunks
         world.recover_data()
         for position, found in world.recovered.items():
-            print(f"{position}: found {found:d} potentially non-corrupted copies")
-        exit()
+            total = len(found)
+            recovered = ", ".join(
+                f"(region {region:d} subfile {subfile:d})" for region, subfile in found
+            )
+            print(
+                f"{position}: found {total:d} potentially non-corrupted copies: {recovered}"
+            )
+        # exit()
 
     chunk_converters = []
 
-    for position, entry in world.entries.items():
-        if entry is True:
-            chunk_converters.append(ChunkConverter(position, None, blocks, True))
-        else:
-            chunk_converters.append(ChunkConverter(position, entry, blocks))
+    if 1:
+        for position, entry in world.entries.items():
+            if entry is True:
+                chunk_converters.append(ChunkConverter(position, None, blocks, True))
+            else:
+                chunk_converters.append(ChunkConverter(position, entry, blocks))
+    if 1:
+        for recover_position, recover_subfiles in world.recovered.items():
+            slot, subfile = recover_subfiles[0]
+            header = parser.CDBEntry(
+                parser.Position(*recover_position),
+                slot,
+                subfile,
+                0x20FF,
+                0xA,
+                0x1,
+                0x8000,
+            )
+            new_entry = Entry(header, world.cdb[slot][subfile])
+            chunk_converters.append(
+                ChunkConverter(recover_position, new_entry, blocks, False)
+            )
+    chunks_fixed = fix_cdb_index(world._cdb_path / "newindex.cdb", world)
+    if chunks_fixed:
+        print(f"Fixed {chunks_fixed:d} corrupt chunks!")
 
     def convert_chunk(
         chunk_converter: ChunkConverter,
@@ -174,9 +222,10 @@ def convert(
         return chunk_converter.region_position, chunk_converter.chunk
 
     regions = {}
-    for region_position, chunk in p_uimap(
-        convert_chunk, chunk_converters, desc="Converting chunks", unit="chunk"
+    for chunk_converter in tqdm(
+        chunk_converters, desc="Converting chunks", unit="chunk"
     ):
+        region_position, chunk = convert_chunk(chunk_converter)
         try:
             region_converter = regions[region_position]
         except KeyError:
@@ -188,4 +237,5 @@ def convert(
     def save_region(region_converter: RegionConverter) -> None:
         region_converter.save()
 
-    p_umap(save_region, regions.values(), desc="Saving regions", unit="region")
+    for region in tqdm(regions.values(), desc="Saving regions", unit="region"):
+        save_region(region)
